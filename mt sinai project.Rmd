@@ -1,0 +1,182 @@
+
+---
+title: "Data Analyst Candidate Assignment: CCHSR"
+author: "Laura Robles-Torres"
+date: "2025-02-14"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Part 1: Demographic trends in healthcare services utilization 
+
+```{r install packages, message=FALSE}
+library(tidyverse)
+library(tidyr)
+library(readxl)
+library(dbplyr)
+library(stringr)
+```
+
+```{r import sheet 1}
+utilization_data =
+    readxl::read_excel("data.xlsx", sheet = "Sheet1")
+
+head(utilization_data)
+```
+
+```{r payor groups}
+payor_data = utilization_data |>
+  mutate(
+    payor = ifelse(category %in% c("Medicaid", "Private Insurance"), category, NA)
+  ) |> 
+  fill(payor, .direction = "down") |> 
+  filter(!category %in% c("Medicaid", "Private Insurance")) |> # Remove payor label rows that are empty 
+  slice(1:8)
+
+# Reshape data into long format
+payor_data |>
+  pivot_longer(cols = `2015`:`2023`, names_to = "year", values_to = "utilization") |>
+  mutate(year = as.numeric(year)) |>
+  select(year, payor, category, utilization) -> payor_data
+```
+
+### Utilization of different healthcare services between 2015 and 2023
+
+In comparing healthcare utilization by different types of insurance payers, we can at first-glance see that there is a significant point starting in 2020 where more services are being covered by Medicaid, rather than by insurance providers. This appears to be a pattern across all 4 types of services, 
+
+```{r plotting payor trends}
+#Plot utilization of each service by payor
+ggplot(payor_data, aes(x = year, y = utilization, color = payor)) +
+  geom_line() +
+  facet_wrap(~ category, scales = "fixed") +
+  theme_minimal() +
+  labs(title = "Healthcare Utilization Trends by Payor", x = "Year", y = "Utilization")
+```
+
+```{r race/ethn groups}
+#Clean data for racial group exploration
+race_data = 
+  utilization_data |>
+  mutate(
+    race = ifelse(category %in% c("Hispanic", "Non-Hispanic Black", "Non-Hispanic White"), category, NA)
+  ) |> 
+  fill(race, .direction = "down") |>  # Fill race downwards
+  filter(!category %in% c("Hispanic", "Non-Hispanic Black", "Non-Hispanic White")) 
+
+# Reshape data into long format
+race_data |>
+  pivot_longer(cols = `2015`:`2023`, names_to = "year", values_to = "utilization")|>
+  mutate(year = as.numeric(year)) |>
+  filter(!is.na(utilization)) |>
+  filter(!is.na(race)) |>
+  slice_tail(n=126) -> race_data
+```
+
+```{r plotting racial trends}
+#Plot utilization of each service by race/ethnicity
+ggplot(race_data, aes(x = year, y = utilization, color = race)) +
+  geom_line() +
+  facet_wrap(~ category, scales = "fixed") +
+  theme_minimal() +
+  labs(title = "Healthcare Utilization Trends by Race/Ethnicity", x = "Year", y = "Utilization")
+```
+
+In visualizing the data, we notice some potentially meaningful patterns in healthcare utilization by race and ethnicity. For both emergency department visits and for inpatient days, Hispanic and Non-Hispanic Black have a higher utilization than Non-Hispanic White children. From 2015-2023, the number of children receiving primary care well-child visits seems to have increased across all racial and ethnic group. However, Non-Hispanic White children still have a higher utilization of this service than Hispanic and NH Black children. Since 2020, the gap in primary care sick visits among the different racial and ethnic groups seems to have decreased in comparison with earlier years when Black and Hispanic children used this service less than White children. 
+
+### How may changes to Medicaid eligibility requirements impact the services utilized?
+
+Black and Hispanic children make up a majority of Medicaid enrolled children in the United States. Since Medicaid is an income-based need program, changes to Medicaid's eligibility system, particularly any changes to the qualifying income level, may disproportionately impact Black and Hispanic children. Decreasing the qualifying income level or imposing work-requirements like some states have, for example, will lead to less enrollees in Medicaid. If enrollees are no longer able to receive Medicaid, they are more likely to not go to preventative visits or primary care when child is sick, leading to higher emergency room utilization and more inpatient days since condition may be worse by the time ER is accessed. 
+
+Decline in Preventive & Routine Care
+Fewer people would get annual check-ups, vaccinations, and early disease screenings.
+This could lead to more undiagnosed chronic conditions (e.g., diabetes, hypertension, cancer).
+Increase in Delayed or Avoided Care
+People who lose Medicaid may delay seeking treatment due to high out-of-pocket costs.
+This delay could lead to more severe health conditions requiring emergency or inpatient care later.
+Rise in Emergency Room Visits & Uncompensated Care
+Uninsured individuals tend to rely more on ERs for care, which could increase hospital uncompensated care costs.
+This could put financial strain on hospitals, especially in states with high Medicaid enrollment.
+
+### Is there evidence that these changes differ across demographic groups? Hypothesize potential reasons for these differences if so. 
+
+```{r problem 2: import & clean}
+options(scipen = 999)  # Turn off scientific notation globally so data correctly imports from Excel sheet 
+
+sheet2 <- readxl::read_excel("data.xlsx", sheet = "Sheet2") #import sheet 2
+
+sheet2$tract <- as.numeric(sheet2$tract)  # Convert 'tract' column to numeric to facilitate join 
+
+#import sheet 3
+sheet3 =
+  readxl::read_excel("data.xlsx", sheet = "Sheet3") |>
+  janitor::clean_names(case = "snake") |>
+  separate(geo_id, sep="S", into = c("geo_id", "tract")) |> #extract 'tract' from 'geo_id' variable for join 
+  mutate(tract = as.numeric(tract)) |> #ensure tract is numeric as well 
+  rename(pop_6_m=b27003_003e, pop_18_m = b27003_006e, pop_6_f = b27003_031e, pop_18_f = b27003_034e) |>
+  rename(public_6_m = b27003_004e, public_18_m = b27003_007e, public_6_f = b27003_032e, public_18_f = b27003_035e) |> #rename variables of interest
+  select(-geo_id)
+
+sheet3 |> 
+  select(tract, pop_6_m, pop_18_m,  pop_6_f, pop_18_f, public_6_m, 
+         public_18_m, public_6_f, public_18_f) -> clean_sheet3
+
+clean_sheet3 = clean_sheet3 |>
+  mutate(total_pop = pop_6_m + pop_18_m + pop_6_f + pop_18_f) |>
+  mutate(public_pop = public_6_m + public_18_m + public_6_f + public_18_f) |>
+  mutate(proportion_public = public_pop / total_pop)
+
+sum(is.na(clean_sheet3))
+clean_sheet3[!complete.cases(clean_sheet3), ]
+
+```
+
+```{r link data}
+linked_data = 
+  inner_join(sheet2,clean_sheet3, by=c("tract"))
+```
+
+```{r patterns of public insurance coverage by race/ethnicity and public insurance}
+linked_data |>
+  group_by(race) |>
+  summarize(n_obs=n()) |>
+    arrange(desc(n_obs))
+
+#list the census tracts by proportion of public insurance from highest to lowest. 
+linked_data |>
+  group_by(tract) |>
+  slice_head(n = 1) |>
+  arrange(desc(proportion_public)) 
+
+#compare the mean proportion of children on public health insurance by racial group 
+linked_data |>
+  group_by(race) |>
+  summarise(
+    mean_public_ins = mean(proportion_public, na.rm = TRUE),
+    median_public_ins = median(proportion_public, na.rm = TRUE),
+    sd_public_ins = sd(proportion_public, na.rm = TRUE),
+    count = n()
+  )
+```
+
+```{r visualize }
+library(ggplot2)
+
+ggplot(linked_data, aes(x = race, y = proportion_public, fill = race)) +
+  geom_boxplot() +
+  labs(title = "Public Insurance Proportion by Race/Ethnicity",
+       x = "Race/Ethnicity",
+       y = "Proportion on Public Insurance") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+ggplot(linked_data, aes(x = proportion_public)) +
+  geom_histogram(binwidth = 0.1, fill = "blue", color = "black", alpha = 0.7) +
+  facet_wrap(~ race) +
+  labs(title = "Distribution of Public Insurance Proportion",
+       x = "Proportion on Public Insurance",
+       y = "Count") +
+  theme_minimal()
+```
