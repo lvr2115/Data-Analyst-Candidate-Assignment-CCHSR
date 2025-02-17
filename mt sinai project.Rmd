@@ -94,7 +94,6 @@ race_data |>
   slice_tail(n=126) -> race_data
 ```
 
-
 For both ED visits and for inpatient days, Hispanic and Non-Hispanic Black have a higher utilization than Non-Hispanic White children overall. Since 2020, a slight decrease in ED visits for both of these racial/ethnic groups can be observed. From 2015-2023, the number of primary care well-child visits increased across all racial and ethnic groups. However, Non-Hispanic White children still have a higher utilization of this service than Hispanic and Non-Hispanic Black children. Since 2020, the gap in primary care sick visits among the different racial and ethnic groups seems to have decreased in comparison with earlier years when Non-Hispnic Black and Hispanic children used this service less than White children. 
 
 ```{r plotting racial trends, code_folding="hide"}
@@ -106,21 +105,17 @@ ggplot(race_data, aes(x = year, y = utilization, color = race)) +
   labs(title = "Healthcare Utilization Trends by Race/Ethnicity", x = "Year", y = "Utilization", color = "Race/Ethnicity")
 ```
 
-### How may changes to Medicaid eligibility requirements impact the services utilized?
+#### How may changes to Medicaid eligibility requirements impact the services utilized? Is there evidence that these changes differ across demographic groups? Hypothesize potential reasons for these differences if so. 
 
-Black and Hispanic children make up a majority of Medicaid enrolled children in the United States. Since Medicaid is an income-based need program, changes to Medicaid's eligibility system, particularly any changes to the qualifying income level, may disproportionately impact Black and Hispanic children. Decreasing the qualifying income level or imposing work-requirements like some states have, for example, will lead to less enrollees in Medicaid. If enrollees are no longer able to receive Medicaid, they are more likely to not go to preventative visits or primary care when child is sick, leading to higher emergency room utilization and more inpatient days since condition may be worse by the time ER is accessed. 
+Black and Hispanic children make up a majority of Medicaid enrolled children in the United States. Since Medicaid is an income-based need program, changes to Medicaid's eligibility system, particularly any changes to the qualifying income level, may disproportionately impact Black and Hispanic children. Decreasing the qualifying income level or imposing work-requirements like some states have, for example, would lead to less enrollees in Medicaid. If individuals that are enrolled under expanded Medicaid eligibility have that eligibility rolled back, it is likely that the trend observed since 2020 of increasing visits covered by Medicaid would reverse. 
 
-Decline in Preventive & Routine Care
-Fewer people would get annual check-ups, vaccinations, and early disease screenings.
-This could lead to more undiagnosed chronic conditions (e.g., diabetes, hypertension, cancer).
-Increase in Delayed or Avoided Care
-People who lose Medicaid may delay seeking treatment due to high out-of-pocket costs.
-This delay could lead to more severe health conditions requiring emergency or inpatient care later.
-Rise in Emergency Room Visits & Uncompensated Care
-Uninsured individuals tend to rely more on ERs for care, which could increase hospital uncompensated care costs.
-This could put financial strain on hospitals, especially in states with high Medicaid enrollment.
+The data show that Black and Hispanic children are less likely to go to preventative well-child visits or primary care visits when sick, which explains in part the higher ED utilization and higher inpatient days observed by these groups, as they may have more severe illness by the time they do seek care.
 
-### Is there evidence that these changes differ across demographic groups? Hypothesize potential reasons for these differences if so. 
+Overall, changes in Medicaid eligibility requirement would lead to a decline in preventative & routine care in a primary care environment for Hispanic and Black children, that have historically had lower PC utilization than White children, due to high out-of-pocket costs for uninsured children. Such delay in seeking care when sick, for example, will lead to an overrealiance on the ED and increase strains on inpatient care. 
+
+###Part 2: Demographic trends among children who underwent surgery for congenital heart disease in NY state in 2022
+
+*The code below shows the importing and preparation of data for linking.*
 
 ```{r problem 2: import & clean}
 options(scipen = 999)  # Turn off scientific notation globally so data correctly imports from Excel sheet 
@@ -134,29 +129,41 @@ sheet3 =
   readxl::read_excel("data.xlsx", sheet = "Sheet3") |>
   janitor::clean_names(case = "snake") |>
   separate(geo_id, sep="S", into = c("geo_id", "tract")) |> #extract 'tract' from 'geo_id' variable for join 
-  mutate(tract = as.numeric(tract)) |> #ensure tract is numeric as well 
+  mutate(tract = as.numeric(tract)) #ensure tract is numeric as well 
+
+ sheet3 |>
   rename(pop_6_m=b27003_003e, pop_18_m = b27003_006e, pop_6_f = b27003_031e, pop_18_f = b27003_034e) |>
   rename(public_6_m = b27003_004e, public_18_m = b27003_007e, public_6_f = b27003_032e, public_18_f = b27003_035e) |> #rename variables of interest
-  select(-geo_id)
+  select(-geo_id) -> sheet3 
 
 sheet3 |> 
   select(tract, pop_6_m, pop_18_m,  pop_6_f, pop_18_f, public_6_m, 
          public_18_m, public_6_f, public_18_f) -> clean_sheet3
-
-clean_sheet3 = clean_sheet3 |>
-  mutate(total_pop = pop_6_m + pop_18_m + pop_6_f + pop_18_f) |>
-  mutate(public_pop = public_6_m + public_18_m + public_6_f + public_18_f) |>
-  mutate(proportion_public = public_pop / total_pop)
-
-sum(is.na(clean_sheet3))
-clean_sheet3[!complete.cases(clean_sheet3), ]
-
+ 
 ```
+
+*The code below shows the linking of data in Sheets 2 and 3.*
 
 ```{r link data}
 linked_data = 
   inner_join(sheet2,clean_sheet3, by=c("tract"))
 ```
+
+#### Calculating the proportion of people ≤18 years old who are on public insurance for each patient’s census tract.
+
+```{r }
+linked_data |>
+  mutate(total_pop = pop_6_m + pop_18_m + pop_6_f + pop_18_f) |>
+  mutate(public_pop = public_6_m + public_18_m + public_6_f + public_18_f) |>
+  mutate(proportion_public = public_pop / total_pop) 
+```
+
+```{r }
+sum(is.na(clean_sheet3))
+clean_sheet3[!complete.cases(clean_sheet3), ]
+```
+
+#### Patterns by public insurance and race/ethnicity
 
 ```{r patterns of public insurance coverage by race/ethnicity and public insurance}
 linked_data |>
@@ -165,7 +172,7 @@ linked_data |>
     arrange(desc(n_obs))
 
 #list the census tracts by proportion of public insurance from highest to lowest. 
-linked_data |>
+proportion_public_per_tract |>
   group_by(tract) |>
   slice_head(n = 1) |>
   arrange(desc(proportion_public)) 
@@ -200,3 +207,10 @@ ggplot(linked_data, aes(x = proportion_public)) +
        y = "Count") +
   theme_minimal()
 ```
+
+
+To do:
+Map
+Table of top 10 census tracts
+Patterms by public insurance and race/ethnicity (looking at mean proportion of public by race)
+Some kind of significance analysis (?)
