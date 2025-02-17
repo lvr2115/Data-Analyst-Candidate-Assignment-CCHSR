@@ -1,18 +1,22 @@
 
 ---
-title: "Data Analyst Candidate Assignment: CCHSR"
-author: "Laura Robles-Torres"
-date: "2025-02-14"
-output: html_document
+title: "<h1 style='margin-bottom: 10px; text-align: center;'>Examining Trends in Pediatric Healthcare Utilization</h1>"
+subtitle: "<h3 style='margin-top: 5px; margin-bottom: 20px; text-align: center; font-style: italic;'>Data Analyst Candidate Assignment: CCHSR</h3>"
+author: "<p style='margin-bottom: 5px; text-align: center;'>Laura Robles-Torres</p>"
+date: "<p style='margin-bottom: 30px; text-align: center;'>February 18, 2025</p>"
+output: 
+  html_document:
+    code_folding: hide
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## Part 1: Demographic trends in healthcare services utilization 
+### Part 1: Trends in utilization of various healthcare services among children between 2015 and 2023
 
-```{r install packages, message=FALSE}
+*The code below includes initial library loading, data importing, and reshaping for analysis.*
+```{r install packages, message=FALSE, code_folding="hide"}
 library(tidyverse)
 library(tidyr)
 library(readxl)
@@ -20,14 +24,14 @@ library(dbplyr)
 library(stringr)
 ```
 
-```{r import sheet 1}
+```{r import sheet 1, results='hide', code_folding="hide"}
 utilization_data =
     readxl::read_excel("data.xlsx", sheet = "Sheet1")
 
 head(utilization_data)
 ```
 
-```{r payor groups}
+```{r payor groups, code_folding="hide"}
 payor_data = utilization_data |>
   mutate(
     payor = ifelse(category %in% c("Medicaid", "Private Insurance"), category, NA)
@@ -45,7 +49,19 @@ payor_data |>
 
 ### Utilization of different healthcare services between 2015 and 2023
 
-In comparing healthcare utilization by different types of insurance payers, we can at first-glance see that there is a significant point starting in 2020 where more services are being covered by Medicaid, rather than by insurance providers. This appears to be a pattern across all 4 types of services, 
+Data collected group healthcare services by both **type of service** and **insurance payers**. Healthcare services are grouped in four different categories, listed below.  
+
+- Primary Care Visits, well-child 
+- Primary Care Visits, sick 
+- Emergency Department Visits 
+- Inpatient Days 
+
+The insurance payers included are **Medicaid** and **Private insurance**. 
+
+Between 2015 and 2023, several trends can be observed in healthcare utilization among races/ethnicities and different payers. 
+
+#### By insurance payor
+Before 2020, trends in ED visits, primary care sick visits, and inpatient days do not appear significantly different between the two payer groups. However, more primary care well-child visits were covered by private insurance than by Medicaid until 2020. Across all 4 types of services, there is an increase in Medicaid as the primary payer starting in 2020 with visits covered by private insurance remaining at a similar level. 
 
 ```{r plotting payor trends}
 #Plot utilization of each service by payor
@@ -53,10 +69,13 @@ ggplot(payor_data, aes(x = year, y = utilization, color = payor)) +
   geom_line() +
   facet_wrap(~ category, scales = "fixed") +
   theme_minimal() +
-  labs(title = "Healthcare Utilization Trends by Payor", x = "Year", y = "Utilization")
+  labs(title = "Healthcare Utilization Trends by Payor", x = "Year", y = "Utilization", color="Insurance Payer")
 ```
 
-```{r race/ethn groups}
+This could be a reflection of Medicaid expansion initiatives that took place in the wake of the COVID-19 pandemic starting in 2020. With more individuals qualifying for Medicaid, more individuals were able to access these 4 different types of healthcare services. 
+
+#### By race/ethnicity
+```{r race/ethn groups, code_folding="hide"}
 #Clean data for racial group exploration
 race_data = 
   utilization_data |>
@@ -75,16 +94,17 @@ race_data |>
   slice_tail(n=126) -> race_data
 ```
 
-```{r plotting racial trends}
+
+For both ED visits and for inpatient days, Hispanic and Non-Hispanic Black have a higher utilization than Non-Hispanic White children overall. Since 2020, a slight decrease in ED visits for both of these racial/ethnic groups can be observed. From 2015-2023, the number of primary care well-child visits increased across all racial and ethnic groups. However, Non-Hispanic White children still have a higher utilization of this service than Hispanic and Non-Hispanic Black children. Since 2020, the gap in primary care sick visits among the different racial and ethnic groups seems to have decreased in comparison with earlier years when Non-Hispnic Black and Hispanic children used this service less than White children. 
+
+```{r plotting racial trends, code_folding="hide"}
 #Plot utilization of each service by race/ethnicity
 ggplot(race_data, aes(x = year, y = utilization, color = race)) +
   geom_line() +
   facet_wrap(~ category, scales = "fixed") +
   theme_minimal() +
-  labs(title = "Healthcare Utilization Trends by Race/Ethnicity", x = "Year", y = "Utilization")
+  labs(title = "Healthcare Utilization Trends by Race/Ethnicity", x = "Year", y = "Utilization", color = "Race/Ethnicity")
 ```
-
-In visualizing the data, we notice some potentially meaningful patterns in healthcare utilization by race and ethnicity. For both emergency department visits and for inpatient days, Hispanic and Non-Hispanic Black have a higher utilization than Non-Hispanic White children. From 2015-2023, the number of children receiving primary care well-child visits seems to have increased across all racial and ethnic group. However, Non-Hispanic White children still have a higher utilization of this service than Hispanic and NH Black children. Since 2020, the gap in primary care sick visits among the different racial and ethnic groups seems to have decreased in comparison with earlier years when Black and Hispanic children used this service less than White children. 
 
 ### How may changes to Medicaid eligibility requirements impact the services utilized?
 
