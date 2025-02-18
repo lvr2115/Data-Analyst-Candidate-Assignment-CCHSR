@@ -172,6 +172,10 @@ sample_proportion_public <- proportion_public_per_tract |>
 knitr::kable(sample_proportion_public)
 ```
 
+To account for differences in population density across census tracts, a weighted analysis was conducted by multiplying the proportion of children on public insurance in each tract by its population density. The weighted mean proportion of children on public insurance was then calculated for each racial/ethnic group. This approach helps adjust for the fact that more densely populated areas may have higher numbers of children on public insurance, which could otherwise skew the results.
+
+Results indicate that [insert key findings], with [race/ethnicity group] showing [higher/lower] weighted proportions compared to [other group(s)].
+
 ```{r}
 proportion_public_per_tract |> 
   filter(!is.na(pop_density) & !is.na(proportion_public)) |>  # Remove rows with NA or zero pop_density
@@ -181,7 +185,6 @@ proportion_public_per_tract |>
     weighted_mean_proportion = sum(weighted_proportion) / sum(pop_density),  # Weighted mean by race
     .groups = "drop"  # Drop grouping for a cleaner result
   )
-
 ```
 
 ```{r,  warning=FALSE, results='hide'}

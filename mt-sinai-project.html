@@ -766,6 +766,31 @@ knitr::kable(sample_proportion_public)</code></pre>
 </tr>
 </tbody>
 </table>
+<p>To account for differences in population density across census
+tracts, a weighted analysis was conducted by multiplying the proportion
+of children on public insurance in each tract by its population density.
+The weighted mean proportion of children on public insurance was then
+calculated for each racial/ethnic group. This approach helps adjust for
+the fact that more densely populated areas may have higher numbers of
+children on public insurance, which could otherwise skew the
+results.</p>
+<p>Results indicate that [insert key findings], with [race/ethnicity
+group] showing [higher/lower] weighted proportions compared to [other
+group(s)].</p>
+<pre class="r"><code>proportion_public_per_tract |&gt; 
+  filter(!is.na(pop_density) &amp; !is.na(proportion_public)) |&gt;  # Remove rows with NA or zero pop_density
+  mutate(weighted_proportion = proportion_public * pop_density) |&gt;  # Calculate weighted proportion
+  group_by(race) |&gt;  # Group by race/ethnicity
+  summarise(
+    weighted_mean_proportion = sum(weighted_proportion) / sum(pop_density),  # Weighted mean by race
+    .groups = &quot;drop&quot;  # Drop grouping for a cleaner result
+  )</code></pre>
+<pre><code>## # A tibble: 3 × 2
+##   race               weighted_mean_proportion
+##   &lt;chr&gt;                                 &lt;dbl&gt;
+## 1 Black non-Hispanic                    0.688
+## 2 Hispanic                              0.369
+## 3 White non-Hispanic                    0.352</code></pre>
 <pre class="r"><code>sum(is.na(clean_sheet3))
 clean_sheet3[!complete.cases(clean_sheet3), ]</code></pre>
 </div>
