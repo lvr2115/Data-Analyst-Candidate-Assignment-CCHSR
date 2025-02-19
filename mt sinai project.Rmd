@@ -1,34 +1,31 @@
 
 ---
-title: "<h1 style='margin-bottom: 10px; text-align: center;'>Examining Trends in Pediatric
-  Healthcare Utilization</h1>"
-author: "<p style='margin-bottom: 5px; text-align: center;'>Laura Robles-Torres</p>"
-date: "<p style='margin-bottom: 30px; text-align: center;'>February 18, 2025</p>"
+title: "Examining Trends in Pediatric Healthcare Utilization"
+author: "Laura Robles-Torres"
+date: "February 18, 2025"
 output:
   html_document:
     code_folding: hide
-  pdf_document: default
-subtitle: "<h3 style='margin-top: 5px; margin-bottom: 20px; text-align: center; font-style:
-  italic;'>Data Analyst Candidate Assignment: CCHSR</h3>"
+subtitle: "Data Analyst Candidate Assignment: CCHSR"
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-### Part 1: Trends in utilization of various healthcare services among children between 2015 and 2023
+#### Part 1: Trends in utilization of various healthcare services among children between 2015 and 2023
 
 *The code below includes initial library loading, data importing, and reshaping for analysis.*
-```{r install packages, message=FALSE, warning=FALSE, code_folding="hide"}
+
+```{r import sheet 1, results='hide', message=FALSE, warning=FALSE, code_folding="hide"}
+#Load necessary libraries
 library(tidyverse)
 library(tidyr)
 library(readxl)
 library(dbplyr)
 library(stringr)
 library(ggplot2)
-```
 
-```{r import sheet 1, results='hide', code_folding="hide",  warning=FALSE}
 #Import Sheet 1 data
 utilization_data =
     readxl::read_excel("data.xlsx", sheet = "Sheet1")
@@ -36,19 +33,10 @@ utilization_data =
 head(utilization_data)
 ```
 
-Between 2015 and 2023, several trends can be observed in healthcare utilization among children of varying racial/ethnic groups and insurance payers. The data analyzed capture the utilization of healthcare services, grouped by **insurance payers** and by **race/ethnicity**. Healthcare services are grouped in four different categories: 
+#### Healthcare utilization by insurance payer
 
-- Primary Care Visits, well-child 
-- Primary Care Visits, sick 
-- Emergency Department Visits 
-- Inpatient Days 
-
-The insurance payers included are **Medicaid** and **Private insurance**. The races/ethnicities are **Non-Hispanic Black (NH Black)**, **Hispanic**, and **Non-Hispanic White (NH White)**. 
-
-#### By insurance payer
-
-```{r payer groups, code_folding="hide",  warning=FALSE}
-#Clean data for payer group exploratory analysis 
+```{r payor groups, code_folding="hide",  warning=FALSE}
+#Clean data for payor groups 
 payor_data = utilization_data |>
   mutate(
     payor = ifelse(category %in% c("Medicaid", "Private Insurance"), category, NA) 
@@ -64,7 +52,19 @@ payor_data |>
   select(year, payor, category, utilization) -> payor_data
 ```
 
-Before 2020, utilization of all services except primary care well-child visits was similar between the two payer groups. While ED visits, primary care sick visits, and inpatient days remained comparable across payers, well-child visits were more frequently covered by private insurance than Medicaid until 2020. Beginning in 2020, Medicaid coverage increased across all four service types, while private insurance coverage remained relatively stable. The sharpest increase in Medicaid-covered services is among primary care well-child visits. 
+
+```{r summary tables for payor,  message=FALSE, warning=FALSE,}
+# Table 1: Mean utilization by insurance type
+payor_table <- payor_data |> 
+  group_by(payor, category) |>  
+  rename(Payor=payor) |>
+  summarise(mean_utilization = mean(utilization, na.rm = TRUE), .groups = "drop") |>
+  mutate(across(where(is.numeric), ~ format(ceiling(.), big.mark = ","))) |>
+  pivot_wider(names_from = category, values_from = mean_utilization)
+
+# Display tables
+knitr::kable(payor_table, caption = "Mean Utilization by Insurance Type")
+```
 
 ```{r plotting payor trends,  warning=FALSE}
 #Plot utilization of each service by payor
@@ -72,12 +72,14 @@ ggplot(payor_data, aes(x = year, y = utilization, color = payor)) +
   geom_line() +
   facet_wrap(~ category, scales = "fixed") +
   theme_minimal() +
-  labs(title = "Healthcare Utilization Trends by Payor", x = "Year", y = "Utilization", color="Insurance Payer")
+  labs(title = "Healthcare Utilization Trends by Payor (2015-2023)", x = "Year", y = "Utilization", color="Insurance Payor") +
+  theme(
+    plot.title = element_text(hjust = 0.5))  # Center the title
 ```
 
-#### By race/ethnicity
-```{r race/ethn groups, code_folding="hide", warning=FALSE}
-#Clean data for racial/ethnic group exploratory analysis 
+#### Healthcare utilization by race/ethnicity
+```{r race/ethnicity groups, code_folding="hide", warning=FALSE}
+#Clean data for racial/ethnic group data 
 race_data = 
   utilization_data |>
   mutate(
@@ -95,39 +97,41 @@ race_data |>
   slice_tail(n=126) -> race_data #Use only data reflecting utilization by race
 ```
 
-Hispanic and NH Black children have higher overall utilization of ED visits compared to NH White children during this period, with Hispanic children specifically having significantly more ED visits. Starting in 2020, ED visits among both Hispanic and NH Black children slightly decreased. 
+```{r  race/ethnicity groups table, message=FALSE, warning=FALSE,}
+# Table 2: Mean utilization by race/ethnicity
+race_table <- race_data |> 
+  group_by(race, category) |>  
+  summarise(mean_utilization = mean(utilization, na.rm = TRUE), .groups = "drop") |>  
+  pivot_wider(names_from = category, values_from = mean_utilization) |>
+  mutate(across(where(is.numeric), ~ format(ceiling(.), big.mark = ","))) |>
+  rename(Race=race) 
 
-Inpatient days have increased slightly for all three groups between 2015 and 2023, with Hispanic and NH Black children consistently having higher inpatient days than NH White children.
+knitr::kable(race_table, caption = "Mean Utilization by Race/Ethnicity")
 
-From 2015 to 2023, primary care well-child visits increased across all racial and ethnic groups, but NH White children continued to have higher utilization than Hispanic and NH Black children. Notably, there was a significant increase in well-child visits among Hispanic and NH Black children starting in 2020. Additionally, the gap in primary care sick visits has narrowed since 2020, compared to earlier years when Hispanic and NH Black children used this service less frequently than NH White children.
+```
 
-```{r plotting racial trends, code_folding="hide",  warning=FALSE}
+```{r plotting race/ethnicity trends, code_folding="hide",  warning=FALSE}
 #Plot utilization of each service by race/ethnicity
 ggplot(race_data, aes(x = year, y = utilization, color = race)) +
   geom_line() +
   facet_wrap(~ category, scales = "fixed") +
   theme_minimal() +
-  labs(title = "Healthcare Utilization Trends by Race/Ethnicity", x = "Year", y = "Utilization", color = "Race/Ethnicity")
+  labs(title = "Healthcare Utilization Trends by Race/Ethnicity (2015-2023)", x = "Year", y = "Utilization", color = "Race/Ethnicity") +
+    theme(
+    plot.title = element_text(hjust = 0.5))  # Center the title
 ```
-
-#### How may changes to Medicaid eligibility requirements impact the services utilized? Is there evidence that these changes differ across demographic groups? Hypothesize potential reasons for these differences if so. 
-
-Changes to Medicaid eligibility, particularly those increasing income limits and expanding access, have likely contributed to shifts in healthcare utilization across these four service types. The ACA’s Medicaid expansion and increased Medicaid enrollment due to the COVID-19 pandemic have allowed more families, particularly those from low-income households, to access healthcare services that were previously out of reach. However, reductions in Medicaid eligibility, such as lowering income thresholds or introducing work requirements, would disproportionately impact Hispanic and NH Black children, who are more likely to come from low-income families and be uninsured. This could reverse the trend since 2020 of increasing Medicaid coverage, making it harder for these children to access primary care and preventive services.
-
-NH Black and Hispanic children tend to use primary care services less frequently than their White peers, often seeking care only when health issues become more severe. As a result, these groups show higher rates of ED utilization and inpatient care. If Medicaid eligibility is reduced, this pattern would likely worsen, leading to greater reliance on emergency departments and increased strain on inpatient services.
 
 ### Part 2: Demographic trends among children who underwent surgery for congenital heart disease in NY state in 2022
 
-*The code below shows the importing and preparation of data for linking.*
-
-```{r problem 2: import & clean,  warning=FALSE}
+```{r, part 2 import & clean,  warning=FALSE}
 options(scipen = 999)  # Turn off scientific notation globally so data correctly imports from Excel sheet 
 
-sheet2 <- readxl::read_excel("data.xlsx", sheet = "Sheet2") #Import sheet 2 (patient data)
+#Import sheet 2 (patient data)
+sheet2 <- readxl::read_excel("data.xlsx", sheet = "Sheet2") 
 
 sheet2$tract <- as.numeric(sheet2$tract)  # Convert 'tract' column to numeric to facilitate join 
 
-#import sheet 3
+#Import sheet 3 (census tract data)
 sheet3 <- readxl::read_excel("data.xlsx", sheet = "Sheet3") |>
           janitor::clean_names(case = "snake") |> 
           separate(geo_id, sep="S", into = c("geo_id", "tract")) |> #Extract 'tract' from 'geo_id' variable for join 
@@ -143,121 +147,174 @@ sheet3 <- readxl::read_excel("data.xlsx", sheet = "Sheet3") |>
          public_18_m, public_6_f, public_18_f, pop_density) 
 ```
 
-*The code below shows the linking of data in Sheets 2 and 3.*
-
-```{r link data}
+```{r link data,  message=FALSE, warning=FALSE,}
+#Link two sheets by tract
 linked_data = 
   inner_join(sheet2,clean_sheet3, by=c("tract"))
 ```
 
+```{r,  message=FALSE, warning=FALSE,}
+#Descriptive statistics of sample 
+#Age
+age_stats <- linked_data |> 
+  summarise(
+    Mean_Age = mean(age, na.rm = TRUE),
+    Median_Age = median(age, na.rm = TRUE),
+    SD_Age = sd(age, na.rm = TRUE),
+    Min_Age = min(age, na.rm = TRUE),
+    Max_Age = max(age, na.rm = TRUE),
+  )
+
+# Descriptive statistics for sex and race/ethnicity
+sex_stats <- linked_data |>
+  group_by(sex) |>
+  summarise(
+    Count = n(),
+    Proportion = n() / nrow(linked_data)  # Proportion of each sex
+  )
+
+race_stats <- linked_data |>
+  group_by(race) |>
+  summarise(
+    Count = n(),
+    Proportion = n() / nrow(linked_data)  # Proportion of each race/ethnicity
+  )
+
+```
+
 #### Proportion of people ≤18 years old who are on public insurance for each patient’s census tract:
-
-The proportion of people that are 18 or younger and are on public insurance was calculated for each census tract included in the data. The total of individuals meeting this criteria was calculated using data from the US Census and the American Community Survey 5-year estimates on the number of people on Public Insurance by sex and age in 2022. 
-
-The number of males and females (18 years or younger) on public insurance in each census tract was divided by the total number of the number of males and females (18 years or younger) residing in that same census tract. 
 
 *The table below is a sample to show final calculations.*
 
-```{r, warning=FALSE}
+```{r, calculating proportion, warning=FALSE, results='hide'}
 linked_data |>
   mutate(total_pop = pop_6_m + pop_18_m + pop_6_f + pop_18_f) |>
   mutate(public_pop = public_6_m + public_18_m + public_6_f + public_18_f) |>
-  mutate(proportion_public = public_pop / total_pop) -> proportion_public_per_tract
+  mutate(proportion_public = ifelse(total_pop == 0, 0, public_pop / total_pop)) -> proportion_public_per_tract  
+# Replace NaN with 0 if total_pop is 0 
 
-sample_proportion_public <- proportion_public_per_tract |>
-  distinct(tract, .keep_all = TRUE) |>
-  slice(1:10) |> 
-  select(patid, sex, age,race,tract,total_pop,public_pop, proportion_public)
+sample_proportion_public <-
+  proportion_public_per_tract |>
+  mutate(proportion_public = round(proportion_public, 2)) |>
+  select(tract, total_pop, public_pop, proportion_public) |>
+  slice_sample(n=10)
 
-knitr::kable(sample_proportion_public)
+knitr::kable(sample_proportion_public) #Sample of 10 random census tracts to show calculations
+
+#List all unique tracts (no duplicates) and their respective calculated proportions
+unique_tracts <- proportion_public_per_tract |>
+  distinct(tract, .keep_all = TRUE)
+
+#See how many unique tracts are missing population density data 
+unique_tracts[complete.cases(unique_tracts), ]
+unique_tracts[is.na(unique_tracts$pop_density), ] #1,026 tracts  do not have population density data 
+
+#How many tracts have >90% children on public insurance?
+num_tracts_above_90 <- unique_tracts|>  
+  filter(proportion_public > 0.90) |>  
+  nrow()
+
+#How many tracts have <10% children on public insurance?
+num_tracts_below_10 <- unique_tracts|>  
+  filter(proportion_public < 0.10) |>  
+  nrow()
+
+print(num_tracts_above_90)
+print(num_tracts_below_10)
 ```
 
-To account for differences in population density across census tracts, a weighted analysis was conducted by multiplying the proportion of children on public insurance in each tract by its population density. The weighted mean proportion of children on public insurance was then calculated for each racial/ethnic group. This approach helps adjust for the fact that more densely populated areas may have higher numbers of children on public insurance, which could otherwise skew the results.
+```{r density analysis, message=FALSE, warning=FALSE,}
+unique_tracts |>
+  filter(!is.na(pop_density)) |>
+  mutate(proportion_public = round(proportion_public, 2)) -> prop_public_tract_complete
 
-Results indicate that [insert key findings], with [race/ethnicity group] showing [higher/lower] weighted proportions compared to [other group(s)].
+#1,026 cases do not have population density variable data and were excluded from this analysis 
 
-```{r}
-proportion_public_per_tract |> 
-  filter(!is.na(pop_density) & !is.na(proportion_public)) |>  # Remove rows with NA or zero pop_density
-  mutate(weighted_proportion = proportion_public * pop_density) |>  # Calculate weighted proportion
-  group_by(race) |>  # Group by race/ethnicity
+#Stratification
+prop_public_tract_stratified <- prop_public_tract_complete |> 
+  mutate(density_category = case_when(
+    pop_density < quantile(pop_density, 0.33, na.rm = TRUE) ~ "Low",
+    pop_density < quantile(pop_density, 0.66, na.rm = TRUE) ~ "Medium",
+    TRUE ~ "High"
+  ))
+
+#Summary of average proportion by density 
+density_summary <- prop_public_tract_stratified |> 
+  group_by(density_category) |> 
+  summarise(mean_proportion = mean(proportion_public, na.rm = TRUE))
+
+knitr::kable(density_summary)
+
+#Visualizing relationship between density and public insurance proportion, transformed on log 
+ggplot(unique_tracts , aes(x = pop_density, y = proportion_public)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE, color = "blue") +
+  labs(
+    x = "Population Density (per square mile)", 
+    y = "Proportion of Children on Public Insurance"
+  ) +
+  scale_x_log10() +  # Apply log scale to x-axis
+  theme_minimal()
+```
+
+```{r checking distribution of data, message=FALSE, warning=FALSE,}
+#Visualize the distribution of proportions by tracts
+ggplot(unique_tracts, aes(x = proportion_public)) +
+  geom_histogram(binwidth = 0.05, fill = "blue", color = "black", alpha = 0.7) +
+  labs(title = "Distribution of Public Insurance Enrollment",
+       x = "Proportion of Children on Public Insurance",
+       y = "Count of Census Tracts") +
+  theme_minimal()
+
+#Median proportion of children on public insurance across all tracts.  
+median_prop <- unique_tracts |>
+  filter(!is.na(proportion_public)) |>
   summarise(
-    weighted_mean_proportion = sum(weighted_proportion) / sum(pop_density),  # Weighted mean by race
-    .groups = "drop"  # Drop grouping for a cleaner result
+    median_public_insurance = median(proportion_public, na.rm = TRUE) #Calculated median due to skewness of data 
   )
-```
 
-```{r,  warning=FALSE, results='hide'}
-sum(is.na(clean_sheet3))
-clean_sheet3[!complete.cases(clean_sheet3), ]
+# Print the result
+print(median_prop) 
 ```
 
 #### Patterns by public insurance and race/ethnicity
 
-##### Sample data grouped by race/ethnicity
+The sample is relatively evenly distributed across racial/ethnic groups.
 
 ```{r patterns of public insurance coverage by race/ethnicity and public insurance,  warning=FALSE}
-#how many children of each racial/ethnic group are in our dataset?
+#How many children of each racial/ethnic group are in our dataset?
 linked_data |>
   group_by(race) |>
   summarize(n_obs=n()) |>
     arrange(desc(n_obs)) -> grouped_race #we have a pretty balanced sample
 
-knitr::kable(grouped_race)
+knitr::kable(grouped_race, caption = "Number of children grouped by race/ethnicity")
 ```
 
-##### Do certain racial/ethnic groups tend to have higher proportions of public insurance?  
+##### Do certain racial/ethnic groups tend to have a higher proportion of children of public insurance?  
 
-These are the top 25 census tracts with the highest proportion of people <18 years old on public insurance: 
-```{r, results='hide', warning=FALSE}
-proportion_public_per_tract |>
-  group_by(tract) |>
-  arrange(desc(proportion_public))
-```
-
-```{r, warning=FALSE}
-proportion_public_table_unique <- proportion_public_per_tract |> 
-  distinct(tract, .keep_all = TRUE) |>
-  arrange(desc(proportion_public)) |>
-  slice(1:25) |>
-  select(patid, race, tract,proportion_public)
-
-knitr::kable(proportion_public_table_unique)
-```
-
-**The mean proportion of public health insurance coverage is highest for Non-Hispanic Black children (65%), compared to Hispanic (35%) and White (27%) children.** 
-
-```{r, warning=FALSE}
-#compare the mean proportion of children on public health insurance by racial group 
-proportion_public_per_tract|>
+```{r patterns between public insurance and race/ethnicity, warning=FALSE}
+#Proportions by race
+proportion_public_per_tract |> 
+  filter(!is.na(proportion_public)) |>  # Remove rows with NA or zero pop_density
   group_by(race) |>
-  summarise(
-    mean_public_ins = mean(proportion_public, na.rm = TRUE),
-    median_public_ins = median(proportion_public, na.rm = TRUE),
-    sd_public_ins = sd(proportion_public, na.rm = TRUE),
-    count = n()
-  ) -> descriptive_statistics
+  summarize(
+    median_prop = median(proportion_public)) -> prop_by_race
 
-knitr::kable(descriptive_statistics)
+knitr::kable(prop_by_race,  caption = "Weighted Mean Proportion of Children on Public Health Insurance by Race/Ethnicity")
 ```
 
 ```{r visualize,  warning=FALSE}
-library(ggplot2)
-
 ggplot(proportion_public_per_tract, aes(x = race, y = proportion_public, fill = race)) +
   geom_boxplot() +
-  labs(title = "Public Insurance Proportion by Race/Ethnicity",
+  stat_summary(fun = median, geom = "text", aes(label = round(..y.., 3)), 
+               position = position_dodge(width = 0.75), vjust = -0.5) +
+  labs(title = "Median Proportion of Children ion Public Insurance by Race/Ethnicity",
        x = "Race/Ethnicity",
        y = "Proportion on Public Insurance") +
+    scale_fill_discrete(name = "Race/Ethnicity") +
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 ```
 
-**NH Black children are more likely to reside in census tracts with a higher percentage of children on public insurance, while Hispanic and NH White children are more likely to live in census tracts with lower public insurance rates.**
 
-A statistical test would be conducted to assess whether these differences in public health insurance proportions between racial/ethnic groups are statistically significant. 
-
-To do:
-Look into populationdensitypersquarem
-Look into descriptive stats of age, sex, race/ethnicity table 
-Revise report text (look at goals)
